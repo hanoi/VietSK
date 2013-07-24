@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.softkeyboard;
+package com.example.android.hellosoftkb;
 
 import android.content.Intent;
 import android.os.Bundle;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.softkeyboard;
+package com.example.android.hellosoftkb;
 
 import android.content.Context;
 import android.content.res.Resources;
@@ -28,6 +28,7 @@ import android.view.View;
 
 import java.util.ArrayList;
 import java.util.List;
+
 
 public class CandidateView extends View {
 

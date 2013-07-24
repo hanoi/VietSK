@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.softkeyboard;
+package com.example.android.hellosoftkb;
 
 import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard;
@@ -32,6 +32,8 @@ import android.view.inputmethod.InputMethodSubtype;
 
 import java.util.ArrayList;
 import java.util.List;
+
+//import com.example.android.hellosoftkb.R;
 
 /**
  * Example of writing an input method for a soft keyboard.  This code is
