@@ -7,8 +7,9 @@
         android:minSdkVersion="11"
         android:targetSdkVersion="17" />
         
-    <application android:label="@string/ime_name"
-        android:debuggable="true" >
+    <application 
+        android:allowBackup="true"
+        android:label="@string/ime_name">
         <service android:name="HelloSoftKb"
                 android:permission="android.permission.BIND_INPUT_METHOD">
             <intent-filter>
@@ -16,12 +17,5 @@
             </intent-filter>
             <meta-data android:name="android.view.im" android:resource="@xml/method" />
         </service>
-
-        <activity android:name="com.example.android.hellosoftkb.ImePreferences" android:label="@string/settings_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-            </intent-filter>
-        </activity>
-
     </application>
 </manifest>

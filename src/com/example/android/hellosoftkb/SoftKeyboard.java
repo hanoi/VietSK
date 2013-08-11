@@ -43,7 +43,7 @@ import java.util.List;
  * be fleshed out as appropriate.
  */
 public class SoftKeyboard extends InputMethodService 
-        implements KeyboardView.OnKeyboardActionListener {
+        implements LatinKeyboardView.OnKeyboardActionListener {
     static final boolean DEBUG = false;
     
     /**

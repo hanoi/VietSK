@@ -23,7 +23,7 @@ import android.inputmethodservice.KeyboardView;
 import android.util.AttributeSet;
 import android.view.inputmethod.InputMethodSubtype;
 
-public class LatinKeyboardView extends KeyboardView {
+public class LatinKeyboardView extends CustomKeyboard {
 
     static final int KEYCODE_OPTIONS = -100;
 
