@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.hellosoftkb;
+package com.cnatek.android.softkeyboard;
 
 import android.content.Context;
 import android.inputmethodservice.Keyboard;
@@ -23,7 +23,7 @@ import android.inputmethodservice.KeyboardView;
 import android.util.AttributeSet;
 import android.view.inputmethod.InputMethodSubtype;
 
-public class LatinKeyboardView extends CustomKeyboard {
+public class LatinKeyboardView extends KeyboardView {
 
     static final int KEYCODE_OPTIONS = -100;
 

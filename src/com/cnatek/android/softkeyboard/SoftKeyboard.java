@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.hellosoftkb;
+package com.cnatek.android.softkeyboard;
 
 import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard;
@@ -33,8 +33,6 @@ import android.view.inputmethod.InputMethodSubtype;
 import java.util.ArrayList;
 import java.util.List;
 
-//import com.example.android.hellosoftkb.R;
-
 /**
  * Example of writing an input method for a soft keyboard.  This code is
  * focused on simplicity over completeness, so it should in no way be considered
@@ -43,7 +41,7 @@ import java.util.List;
  * be fleshed out as appropriate.
  */
 public class SoftKeyboard extends InputMethodService 
-        implements LatinKeyboardView.OnKeyboardActionListener {
+        implements KeyboardView.OnKeyboardActionListener {
     static final boolean DEBUG = false;
     
     /**
