@@ -77,7 +77,8 @@ public class SoftKeyboard extends InputMethodService
     static final boolean PROCESS_HARD_KEYS = true;
 	private static final String RE_PHRASE_SPL = "[.,:;?!'\"()]|[@#$%&*+/]|[\r\n]";
 	private static final int MIN_N_CHARS = 2;
-
+//	private ArrayList<String> mSuggestions; // duplicate from CandidateView???
+	
     private InputMethodManager mInputMethodManager;
 
     private LatinKeyboardView mInputView;
@@ -572,7 +573,7 @@ public class SoftKeyboard extends InputMethodService
      */
     private void updateCandidates() {
     	/* now let's wait until the debugger attaches */
-        if (DEBUG) android.os.Debug.waitForDebugger();
+//        if (DEBUG) android.os.Debug.waitForDebugger();
         
         if (!mCompletionOn) {
             if (mComposing.length() > MIN_N_CHARS) {
@@ -593,6 +594,7 @@ public class SoftKeyboard extends InputMethodService
     public void setSuggestions(List<String> suggestions, boolean completions,
             boolean typedWordValid) {
         if (suggestions != null && suggestions.size() > 0) {
+//        	mSuggestions = new ArrayList<String>(suggestions);
             setCandidatesViewShown(true);
         } else if (isExtractViewShown()) {
             setCandidatesViewShown(true);
@@ -641,7 +643,7 @@ public class SoftKeyboard extends InputMethodService
     
     private void handleCharacter(int primaryCode, int[] keyCodes) {
     	/* now let's wait until the debugger attaches */
-        if (DEBUG) android.os.Debug.waitForDebugger();
+//        if (DEBUG) android.os.Debug.waitForDebugger();
         
         if (isInputViewShown()) {
             if (mInputView.isShifted()) {
@@ -690,7 +692,7 @@ public class SoftKeyboard extends InputMethodService
     
     public void pickSuggestionManually(int index) {
     	/* now let's wait until the debugger attaches */
-        if (DEBUG) android.os.Debug.waitForDebugger();
+//        if (DEBUG) android.os.Debug.waitForDebugger();
         
         if (mCompletionOn && mCompletions != null && index >= 0
                 && index < mCompletions.length) {
@@ -704,6 +706,8 @@ public class SoftKeyboard extends InputMethodService
             // If we were generating candidate suggestions for the current
             // text, we would commit one of them here.  But for this sample,
             // we will just commit the current text.
+        	// ignore comment above: overwrite mComposing with selected suggestion
+        	mComposing.replace(0, mComposing.length(), mCandidateView.getSuggestions(index));
             commitTyped(getCurrentInputConnection());
         }
     }
@@ -797,7 +801,7 @@ public class SoftKeyboard extends InputMethodService
     	// onPostExecute displays the results of the AsyncTask.
     	@Override
     	protected void onPostExecute(String suggestions) {
-    		setSuggestions(Arrays.asList(suggestions.split(",")), true, true);
+    		setSuggestions(Arrays.asList(suggestions.split("\",\"|[,\"]")), true, true);
     	}
 
     	// Given a URL, establishes an HttpUrlConnection and retrieves

@@ -235,7 +235,12 @@ public class CandidateView extends View {
         scrollTo(sx, getScrollY());
         invalidate();
     }
+
+    public String getSuggestions(int index) {
+    	return mSuggestions.get(index);
+    }
     
+
     public void setSuggestions(List<String> suggestions, boolean completions,
             boolean typedWordValid) {
         clear();
