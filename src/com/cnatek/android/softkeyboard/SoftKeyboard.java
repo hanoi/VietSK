@@ -16,11 +16,16 @@
 
 package com.cnatek.android.softkeyboard;
 
+import android.content.Context;
 import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard;
 import android.inputmethodservice.KeyboardView;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.os.AsyncTask;
 import android.text.InputType;
 import android.text.method.MetaKeyKeyListener;
+import android.util.Log;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.View;
@@ -30,8 +35,22 @@ import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.InputMethodSubtype;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+//import com.cnatek.android.help.DownloadWebpageTask;
 
 /**
  * Example of writing an input method for a soft keyboard.  This code is
@@ -42,8 +61,11 @@ import java.util.List;
  */
 public class SoftKeyboard extends InputMethodService 
         implements KeyboardView.OnKeyboardActionListener {
-    static final boolean DEBUG = false;
-    
+    static final boolean DEBUG = true;
+	static final String DEBUG_TAG = "VIET.ES";
+    static final String VIET_URL = "http://viet.es/s/s/";
+    static final String LOCAL_URL = "http://10.0.2.2:8000/s/s/";
+	
     /**
      * This boolean indicates the optional example code for performing
      * processing of hard keys in addition to regular text generation
@@ -53,6 +75,8 @@ public class SoftKeyboard extends InputMethodService
      * that are primarily intended to be used for on-screen text entry.
      */
     static final boolean PROCESS_HARD_KEYS = true;
+	private static final String RE_PHRASE_SPL = "[.,:;?!'\"()]|[@#$%&*+/]|[\r\n]";
+	private static final int MIN_N_CHARS = 2;
 
     private InputMethodManager mInputMethodManager;
 
@@ -320,6 +344,7 @@ public class SoftKeyboard extends InputMethodService
         
         boolean dead = false;
 
+        // @todo implement vietnamese IME ~edit.js here for dd|aa|ee|oo|[aeo]w|[aeiouy][rsfjx]|...
         if ((c & KeyCharacterMap.COMBINING_ACCENT) != 0) {
             dead = true;
             c = c & KeyCharacterMap.COMBINING_ACCENT_MASK;
@@ -546,11 +571,19 @@ public class SoftKeyboard extends InputMethodService
      * candidates.
      */
     private void updateCandidates() {
+    	/* now let's wait until the debugger attaches */
+        if (DEBUG) android.os.Debug.waitForDebugger();
+        
         if (!mCompletionOn) {
-            if (mComposing.length() > 0) {
-                ArrayList<String> list = new ArrayList<String>();
-                list.add(mComposing.toString());
-                setSuggestions(list, true, true);
+            if (mComposing.length() > MIN_N_CHARS) {
+                // @todo ajax using viet_url, mComposing to get list of suggestions 
+            	Log.d(DEBUG_TAG, "updateCandidates - calling getSuggestions().");
+                getSuggestions();
+//            }
+//            else if (mComposing.length() > 0) {
+//                    ArrayList<String> list = new ArrayList<String>();
+//                    list.add(mComposing.toString());
+//                    setSuggestions(list, true, true);
             } else {
                 setSuggestions(null, false, false);
             }
@@ -607,6 +640,9 @@ public class SoftKeyboard extends InputMethodService
     }
     
     private void handleCharacter(int primaryCode, int[] keyCodes) {
+    	/* now let's wait until the debugger attaches */
+        if (DEBUG) android.os.Debug.waitForDebugger();
+        
         if (isInputViewShown()) {
             if (mInputView.isShifted()) {
                 primaryCode = Character.toUpperCase(primaryCode);
@@ -653,6 +689,9 @@ public class SoftKeyboard extends InputMethodService
     }
     
     public void pickSuggestionManually(int index) {
+    	/* now let's wait until the debugger attaches */
+        if (DEBUG) android.os.Debug.waitForDebugger();
+        
         if (mCompletionOn && mCompletions != null && index >= 0
                 && index < mCompletions.length) {
             CompletionInfo ci = mCompletions[index];
@@ -690,5 +729,118 @@ public class SoftKeyboard extends InputMethodService
     }
     
     public void onRelease(int primaryCode) {
+    }
+    
+	/** @todo Called by updateCandidates() or whenever a character is entered? */
+	public void getSuggestions() { 
+		InputConnection ic = getCurrentInputConnection();
+		if (ic==null) return;
+		String t = (String) ic.getTextBeforeCursor(100, 0);
+		String[] phrases = t.split( RE_PHRASE_SPL );
+		String lastPhrase = phrases[phrases.length-1];
+	    int begin = t.lastIndexOf(lastPhrase);
+
+		String w = mComposing.toString();//(String) ic.getSelectedText(0);
+		String context = lastPhrase.substring(0, lastPhrase.lastIndexOf(w)); 
+
+		URL vietes = null;
+		try {
+			String c = URLEncoder.encode(context, "utf-8").toString().replace("+", "%20");
+			String w1 = URLEncoder.encode(w, "utf-8").toString();
+			if (DEBUG) {
+				vietes = new URL(LOCAL_URL+c+'/'+w1+'/'+begin);
+			}
+			else {
+				vietes = new URL(VIET_URL+c+'/'+w1+'/'+begin);
+			}
+		
+			ConnectivityManager connMgr = (ConnectivityManager) 
+					getSystemService(Context.CONNECTIVITY_SERVICE);
+			NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
+			if (networkInfo != null && networkInfo.isConnected()) {
+				new DownloadWebpageTask().execute(vietes);
+			} else {
+				Log.d(DEBUG_TAG, "getSuggestions - No network connection available.");
+			}
+		} catch (Exception e) { // MalformedURLException | URISyntaxException | UnsupportedEncodingException
+			Log.d(DEBUG_TAG, "getSuggestions - Invalid URL or unsupported URL encoding: "+vietes);
+		}
+	}
+    
+    /**
+     * Uses AsyncTask to create a task away from the main UI thread. This task takes a 
+     * URL string and uses it to create an HttpUrlConnection. Once the connection
+     * has been established, the AsyncTask downloads the contents of the webpage as
+     * an InputStream. Finally, the InputStream is converted into a string, which is
+     * displayed in the UI by the AsyncTask's onPostExecute method.
+     * @author david
+     *
+     */
+    private class DownloadWebpageTask extends AsyncTask<URL, Void, String> {
+    	@Override
+    	protected String doInBackground(URL... urls) {
+    		// params comes from the execute() call: params[0] is the url.
+    		try {
+    			String content = downloadUrl(urls[0]);
+    			JSONArray jsonArray = new JSONArray(content);
+    			JSONArray words = jsonArray.getJSONObject(0).getJSONArray("word");
+    			String suggestions = words.join(",");
+    			Log.d(DEBUG_TAG, "doInBackground - The suggestions are: " + suggestions);
+    			return suggestions;
+    		} catch (IOException e) { // IOException
+    			return "Unable to retrieve web page. URL may be invalid";
+    		}
+    		catch (org.json.JSONException e) { // JSONException
+			return "JSON may be malformed";
+    		}
+    	}
+    	// onPostExecute displays the results of the AsyncTask.
+    	@Override
+    	protected void onPostExecute(String suggestions) {
+    		setSuggestions(Arrays.asList(suggestions.split(",")), true, true);
+    	}
+
+    	// Given a URL, establishes an HttpUrlConnection and retrieves
+    	// the web page content as a InputStream, which it returns as
+    	// a string.
+    	private String downloadUrl(URL url) throws IOException {
+    		InputStream is = null;
+    		// Only display the first 500 characters of the retrieved
+    		// web page content.
+    		int len = 500;
+
+    		try {
+    			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+    			conn.setReadTimeout(10000 /* milliseconds */);
+    			conn.setConnectTimeout(15000 /* milliseconds */);
+    			conn.setRequestMethod("GET");
+    			conn.setDoInput(true);
+    			// Starts the query
+    			conn.connect();
+    			int response = conn.getResponseCode();
+    			Log.d(DEBUG_TAG, "downloadUrl - The response is: " + response);
+    			is = conn.getInputStream();
+
+    			// Convert the InputStream into a string
+    			String contentAsString = readIt(is, len);
+    			return contentAsString;
+
+    			// Makes sure that the InputStream is closed after the app is
+    			// finished using it.
+    		} finally {
+    			if (is != null) {
+    				is.close();
+    			} 
+    		}
+    	}
+
+    	// Reads an InputStream and converts it to a String.
+    	public String readIt(InputStream stream, int len) throws IOException, UnsupportedEncodingException {
+    		Reader reader = null;
+    		reader = new InputStreamReader(stream, "UTF-8");        
+    		char[] buffer = new char[len];
+    		reader.read(buffer);
+    		return new String(buffer);
+    	}
     }
 }
