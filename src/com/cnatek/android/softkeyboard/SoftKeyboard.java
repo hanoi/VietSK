@@ -460,7 +460,7 @@ public class SoftKeyboard extends InputMethodService
      */
     private void commitTyped(InputConnection inputConnection) {
         if (mComposing.length() > 0) {
-            inputConnection.commitText(mComposing, mComposing.length());
+            inputConnection.commitText(mComposing, 1);
             mComposing.setLength(0);
             updateCandidates();
         }
@@ -576,14 +576,7 @@ public class SoftKeyboard extends InputMethodService
      */
     private void updateCandidates() {
         if (!mCompletionOn) {
-//          if (mComposing.length() > 0) {
-//          	ArrayList<String> list = new ArrayList<String>();
-//          	list.add(mComposing.toString());
-//          	setSuggestions(list, true, true);
-//          }
-        	if (mComposing.length() > MIN_N_CHARS) {
-                // @todo ajax using viet_url, mComposing to get list of suggestions 
-//            	Log.d(DEBUG_TAG, "updateCandidates - calling getSuggestions().");
+        	if (mComposing.length() > MIN_N_CHARS) { 
                 getSuggestions();
             } else {
                 setSuggestions(null, false, false);
@@ -594,7 +587,6 @@ public class SoftKeyboard extends InputMethodService
     public void setSuggestions(List<String> suggestions, boolean completions,
             boolean typedWordValid) {
         if (suggestions != null && suggestions.size() > 0) {
-//        	mSuggestions = new ArrayList<String>(suggestions);
             setCandidatesViewShown(true);
         } else if (isExtractViewShown()) {
             setCandidatesViewShown(true);
@@ -703,11 +695,8 @@ public class SoftKeyboard extends InputMethodService
             }
             updateShiftKeyState(getCurrentInputEditorInfo());
         } else if (mComposing.length() > 0) {
-            // If we were generating candidate suggestions for the current
-            // text, we would commit one of them here.  But for this sample,
-            // we will just commit the current text.
-        	// @todo remove this Big, Ugly Hack!
-        	// ignore comment above: overwrite mComposing with selected suggestion
+            // If we were generating candidate suggestions for the current text, we would
+            // commit one of them here (by overwriting mComposing with selected suggestion).
         	mComposing.replace(0, mComposing.length(), mCandidateView.getSuggestions(index)+" ");
             commitTyped(getCurrentInputConnection());
         }
@@ -736,7 +725,10 @@ public class SoftKeyboard extends InputMethodService
     public void onRelease(int primaryCode) {
     }
     
-	/** @todo Called by updateCandidates() or whenever a character is entered? */
+	/** 
+	 * get list of suggestions via ajax(viet.es)
+	 * @todo Called by updateCandidates() or whenever a character, including space, is entered? 
+	 **/
 	public void getSuggestions() { 
 		InputConnection ic = getCurrentInputConnection();
 		if (ic==null) return;
