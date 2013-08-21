@@ -33,7 +33,8 @@ import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
-import android.view.inputmethod.InputMethodSubtype;
+// @todo temporarily commented out newly added API level 11 calls
+//import android.view.inputmethod.InputMethodSubtype;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -61,7 +62,7 @@ import org.json.JSONObject;
  */
 public class SoftKeyboard extends InputMethodService 
         implements KeyboardView.OnKeyboardActionListener {
-    static final boolean DEBUG = true;
+    static final boolean DEBUG = false;
 	static final String DEBUG_TAG = "VIET.ES";
     static final String VIET_URL = "http://viet.es/s/s/";
     static final String LOCAL_URL = "http://10.0.2.2:8000/s/s/";
@@ -274,14 +275,16 @@ public class SoftKeyboard extends InputMethodService
         // Apply the selected keyboard to the input view.
         mInputView.setKeyboard(mCurKeyboard);
         mInputView.closing();
-        final InputMethodSubtype subtype = mInputMethodManager.getCurrentInputMethodSubtype();
-        mInputView.setSubtypeOnSpaceKey(subtype);
+        // @todo temporarily commented out newly added API level 11 calls
+//        final InputMethodSubtype subtype = mInputMethodManager.getCurrentInputMethodSubtype();
+//        mInputView.setSubtypeOnSpaceKey(subtype);
     }
 
-    @Override
-    public void onCurrentInputMethodSubtypeChanged(InputMethodSubtype subtype) {
-        mInputView.setSubtypeOnSpaceKey(subtype);
-    }
+    // @todo temporarily commented out newly added API level 11 calls
+//    @Override
+//    public void onCurrentInputMethodSubtypeChanged(InputMethodSubtype subtype) {
+//        mInputView.setSubtypeOnSpaceKey(subtype);
+//    }
 
     /**
      * Deal with the editor reporting movement of its cursor.
@@ -572,19 +575,16 @@ public class SoftKeyboard extends InputMethodService
      * candidates.
      */
     private void updateCandidates() {
-    	/* now let's wait until the debugger attaches */
-//        if (DEBUG) android.os.Debug.waitForDebugger();
-        
         if (!mCompletionOn) {
-            if (mComposing.length() > MIN_N_CHARS) {
+//          if (mComposing.length() > 0) {
+//          	ArrayList<String> list = new ArrayList<String>();
+//          	list.add(mComposing.toString());
+//          	setSuggestions(list, true, true);
+//          }
+        	if (mComposing.length() > MIN_N_CHARS) {
                 // @todo ajax using viet_url, mComposing to get list of suggestions 
-            	Log.d(DEBUG_TAG, "updateCandidates - calling getSuggestions().");
+//            	Log.d(DEBUG_TAG, "updateCandidates - calling getSuggestions().");
                 getSuggestions();
-//            }
-//            else if (mComposing.length() > 0) {
-//                    ArrayList<String> list = new ArrayList<String>();
-//                    list.add(mComposing.toString());
-//                    setSuggestions(list, true, true);
             } else {
                 setSuggestions(null, false, false);
             }
@@ -706,8 +706,9 @@ public class SoftKeyboard extends InputMethodService
             // If we were generating candidate suggestions for the current
             // text, we would commit one of them here.  But for this sample,
             // we will just commit the current text.
+        	// @todo remove this Big, Ugly Hack!
         	// ignore comment above: overwrite mComposing with selected suggestion
-        	mComposing.replace(0, mComposing.length(), mCandidateView.getSuggestions(index));
+        	mComposing.replace(0, mComposing.length(), mCandidateView.getSuggestions(index)+" ");
             commitTyped(getCurrentInputConnection());
         }
     }
