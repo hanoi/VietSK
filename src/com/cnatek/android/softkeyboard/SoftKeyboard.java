@@ -33,8 +33,6 @@ import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
-// @todo temporarily commented out newly added API level 11 calls
-//import android.view.inputmethod.InputMethodSubtype;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,6 +45,7 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -76,9 +75,13 @@ public class SoftKeyboard extends InputMethodService
      * that are primarily intended to be used for on-screen text entry.
      */
     static final boolean PROCESS_HARD_KEYS = true;
-	private static final String RE_PHRASE_SPL = "[.,:;?!'\"()]|[@#$%&*+/]|[\r\n]";
+	private static final String RE_PHRASE_SPL = "[.,:;?!'\"()]|[@#$%&*+/]|[\t\f\r\n]";
+	private static final String COMMON_CONSO = "th|ch|ng|nh|tr|kh|ph|gi|qu";
+	private static final Pattern RE_SPACE = Pattern.compile("[ .,:;?!'\"()]|[\t\f\r\n]");
+	private static final Pattern ENDING = Pattern.compile("[.,:;?!\r\n]");
 	private static final int MIN_N_CHARS = 2;
-//	private ArrayList<String> mSuggestions; // duplicate from CandidateView???
+	private static final char CHAR_SPACE = ' ';
+	private static final String STR_SPACE = " ";
 	
     private InputMethodManager mInputMethodManager;
 
@@ -523,39 +526,44 @@ public class SoftKeyboard extends InputMethodService
 
     // Implementation of KeyboardViewListener
 
-    public void onKey(int primaryCode, int[] keyCodes) {
-        if (isWordSeparator(primaryCode)) {
-            // Handle separator
-            if (mComposing.length() > 0) {
-                commitTyped(getCurrentInputConnection());
-            }
-            sendKey(primaryCode);
-            updateShiftKeyState(getCurrentInputEditorInfo());
-        } else if (primaryCode == Keyboard.KEYCODE_DELETE) {
-            handleBackspace();
-        } else if (primaryCode == Keyboard.KEYCODE_SHIFT) {
-            handleShift();
-        } else if (primaryCode == Keyboard.KEYCODE_CANCEL) {
-            handleClose();
-            return;
-        } else if (primaryCode == LatinKeyboardView.KEYCODE_OPTIONS) {
-            // Show a menu or somethin'
-        } else if (primaryCode == Keyboard.KEYCODE_MODE_CHANGE
-                && mInputView != null) {
-            Keyboard current = mInputView.getKeyboard();
-            if (current == mSymbolsKeyboard || current == mSymbolsShiftedKeyboard) {
-                current = mQwertyKeyboard;
-            } else {
-                current = mSymbolsKeyboard;
-            }
-            mInputView.setKeyboard(current);
-            if (current == mSymbolsKeyboard) {
-                current.setShifted(false);
-            }
-        } else {
-            handleCharacter(primaryCode, keyCodes);
-        }
-    }
+	public void onKey(int primaryCode, int[] keyCodes) {
+		if (isWordSeparator(primaryCode)) { // Handle separator
+			/* now let's wait until the debugger attaches */
+			if (DEBUG)
+				android.os.Debug.waitForDebugger();
+
+			if (mComposing.length() > 0) {
+				commitTyped(getCurrentInputConnection());
+			}
+			sendKey(primaryCode);
+			updateShiftKeyState(getCurrentInputEditorInfo());
+			swapPunctuationAndSpace();
+		} else if (primaryCode == Keyboard.KEYCODE_DELETE) {
+			handleBackspace();
+		} else if (primaryCode == Keyboard.KEYCODE_SHIFT) {
+			handleShift();
+		} else if (primaryCode == Keyboard.KEYCODE_CANCEL) {
+			handleClose();
+			return;
+		} else if (primaryCode == LatinKeyboardView.KEYCODE_OPTIONS) {
+			// Show a menu or somethin'
+		} else if (primaryCode == Keyboard.KEYCODE_MODE_CHANGE
+				&& mInputView != null) {
+			Keyboard current = mInputView.getKeyboard();
+			if (current == mSymbolsKeyboard
+					|| current == mSymbolsShiftedKeyboard) {
+				current = mQwertyKeyboard;
+			} else {
+				current = mSymbolsKeyboard;
+			}
+			mInputView.setKeyboard(current);
+			if (current == mSymbolsKeyboard) {
+				current.setShifted(false);
+			}
+		} else {
+			handleCharacter(primaryCode, keyCodes);
+		}
+	}
 
     public void onText(CharSequence text) {
         InputConnection ic = getCurrentInputConnection();
@@ -576,10 +584,10 @@ public class SoftKeyboard extends InputMethodService
      */
     private void updateCandidates() {
         if (!mCompletionOn) {
-        	if (mComposing.length() > MIN_N_CHARS) { 
-                getSuggestions();
+        	if (mComposing.length() < MIN_N_CHARS || mComposing.toString().matches(COMMON_CONSO)) { 
+        		setSuggestions(null, false, false);
             } else {
-                setSuggestions(null, false, false);
+            	getSuggestions();
             }
         }
     }
@@ -633,10 +641,7 @@ public class SoftKeyboard extends InputMethodService
         }
     }
     
-    private void handleCharacter(int primaryCode, int[] keyCodes) {
-    	/* now let's wait until the debugger attaches */
-//        if (DEBUG) android.os.Debug.waitForDebugger();
-        
+    private void handleCharacter(int primaryCode, int[] keyCodes) {        
         if (isInputViewShown()) {
             if (mInputView.isShifted()) {
                 primaryCode = Character.toUpperCase(primaryCode);
@@ -684,7 +689,7 @@ public class SoftKeyboard extends InputMethodService
     
     public void pickSuggestionManually(int index) {
     	/* now let's wait until the debugger attaches */
-//        if (DEBUG) android.os.Debug.waitForDebugger();
+        if (DEBUG) android.os.Debug.waitForDebugger();
         
         if (mCompletionOn && mCompletions != null && index >= 0
                 && index < mCompletions.length) {
@@ -763,7 +768,25 @@ public class SoftKeyboard extends InputMethodService
 			Log.d(DEBUG_TAG, "getSuggestions - Invalid URL or unsupported URL encoding: "+vietes);
 		}
 	}
-    
+
+    private void swapPunctuationAndSpace() {
+    	if (DEBUG) android.os.Debug.waitForDebugger();
+    	
+		InputConnection ic = getCurrentInputConnection();
+		if (ic==null) return;
+		
+        CharSequence lastTwo = ic.getTextBeforeCursor(2, 0);
+        if (lastTwo != null && lastTwo.length() == 2 && lastTwo.charAt(0) == CHAR_SPACE) {
+            ic.deleteSurroundingText(2, 0);
+            if (lastTwo.charAt(1) == CHAR_SPACE) { // double space => .
+            	ic.commitText(".", 1);
+            } else if (ENDING.matcher(String.valueOf(lastTwo.charAt(1))).find()) { // swap
+            	ic.commitText(lastTwo.charAt(1) + STR_SPACE, 1);
+            }
+            updateShiftKeyState(getCurrentInputEditorInfo());
+        }
+    }
+
     /**
      * Uses AsyncTask to create a task away from the main UI thread. This task takes a 
      * URL string and uses it to create an HttpUrlConnection. Once the connection

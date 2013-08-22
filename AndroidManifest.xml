@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" 
-        package="com.cnatek.android.softkeyboard" android:versionCode="1" android:versionName="froyo-130820">
+        package="com.cnatek.android.softkeyboard" android:versionCode="1" android:versionName="froyo-130824">
     <uses-sdk
         android:minSdkVersion="8"
         android:targetSdkVersion="17" />
