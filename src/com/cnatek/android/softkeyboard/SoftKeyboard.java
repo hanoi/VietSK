@@ -734,27 +734,30 @@ public class SoftKeyboard extends InputMethodService
 	 * get list of suggestions via ajax(viet.es)
 	 * @todo Called by updateCandidates() or whenever a character, including space, is entered? 
 	 **/
-	public void getSuggestions() { 
+	public void getSuggestions() {
+    	if (DEBUG) android.os.Debug.waitForDebugger();
+    	
 		InputConnection ic = getCurrentInputConnection();
 		if (ic==null) return;
+		
 		String t = (String) ic.getTextBeforeCursor(100, 0);
-		String[] phrases = t.split( RE_PHRASE_SPL );
-		String lastPhrase = phrases[phrases.length-1];
-	    int begin = t.lastIndexOf(lastPhrase);
-
 		String w = mComposing.toString();//(String) ic.getSelectedText(0);
-		String context = lastPhrase.substring(0, lastPhrase.lastIndexOf(w)); 
-
+		String context = getContext(t, w); 
+	    int begin = t.lastIndexOf(context); // what if the typed text is longer than t, 
+	    // i.e already contains more than 100 chars???
+		if (context.length()==0 || context.trim().length()==0) {
+			begin = 0; // currently begin is actually not used
+			w = w.toLowerCase();
+		}
+	    
 		URL vietes = null;
 		try {
 			String c = URLEncoder.encode(context, "utf-8").toString().replace("+", "%20");
 			String w1 = URLEncoder.encode(w, "utf-8").toString();
-			if (DEBUG) {
+			if (DEBUG)
 				vietes = new URL(LOCAL_URL+c+'/'+w1+'/'+begin);
-			}
-			else {
+			else
 				vietes = new URL(VIET_URL+c+'/'+w1+'/'+begin);
-			}
 		
 			ConnectivityManager connMgr = (ConnectivityManager) 
 					getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -769,6 +772,13 @@ public class SoftKeyboard extends InputMethodService
 		}
 	}
 
+	public String getContext(String t, String w) {
+		String[] phrases = t.split( RE_PHRASE_SPL );
+		String lastPhrase = phrases[phrases.length-1];
+		String context = lastPhrase.substring(0, lastPhrase.lastIndexOf(w)); 
+		return context;
+	}
+	
     private void swapPunctuationAndSpace() {
     	if (DEBUG) android.os.Debug.waitForDebugger();
     	
@@ -804,6 +814,13 @@ public class SoftKeyboard extends InputMethodService
     			String content = downloadUrl(urls[0]);
     			JSONArray jsonArray = new JSONArray(content);
     			JSONArray words = jsonArray.getJSONObject(0).getJSONArray("word");
+    			int begin = jsonArray.getJSONObject(0).getInt("begin");
+    			if (begin==0)
+	    			for (int i=0; i<words.length(); i++) {
+	    				String w = words.getString(i);
+	    				w = Character.toUpperCase(w.charAt(0)) + w.substring(1); 
+	    				words.put(i, w);
+	    			}
     			String suggestions = words.join(",");
     			Log.d(DEBUG_TAG, "doInBackground - The suggestions are: " + suggestions);
     			return suggestions;
