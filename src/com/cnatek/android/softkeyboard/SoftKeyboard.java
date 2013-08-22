@@ -61,7 +61,7 @@ import org.json.JSONObject;
  */
 public class SoftKeyboard extends InputMethodService 
         implements KeyboardView.OnKeyboardActionListener {
-    static final boolean DEBUG = false;
+    static final boolean DEBUG = true;
 	static final String DEBUG_TAG = "VIET.ES";
     static final String VIET_URL = "http://viet.es/s/s/";
     static final String LOCAL_URL = "http://10.0.2.2:8000/s/s/";
@@ -743,9 +743,9 @@ public class SoftKeyboard extends InputMethodService
 		String t = (String) ic.getTextBeforeCursor(100, 0);
 		String w = mComposing.toString();//(String) ic.getSelectedText(0);
 		String context = getContext(t, w); 
-	    int begin = t.lastIndexOf(context); // what if the typed text is longer than t, 
+	    int begin = t.lastIndexOf(w); // what if the typed text is longer than t, 
 	    // i.e already contains more than 100 chars???
-		if (context.length()==0 || context.trim().length()==0) {
+		if (Character.isUpperCase(w.charAt(0)) && (context.length()==0 || context.trim().length()==0)) {
 			begin = 0; // currently begin is actually not used
 			w = w.toLowerCase();
 		}
