@@ -77,11 +77,13 @@ public class SoftKeyboard extends InputMethodService
     static final boolean PROCESS_HARD_KEYS = true;
 	private static final String RE_PHRASE_SPL = "[.,:;?!'\"()]|[@#$%&*+/]|[\t\f\r\n]";
 	private static final String COMMON_CONSO = "th|ch|ng|nh|tr|kh|ph|gi|qu";
-	private static final Pattern RE_SPACE = Pattern.compile("[ .,:;?!'\"()]|[\t\f\r\n]");
+	private static final Pattern RE_SPACE = Pattern.compile("[ .,:;?!'\"()]");//|[\t\f\r\n]
 	private static final Pattern ENDING = Pattern.compile("[.,:;?!\r\n]");
 	private static final int MIN_N_CHARS = 2;
 	private static final char CHAR_SPACE = ' ';
 	private static final String STR_SPACE = " ";
+	private static final int LAST_WORD_MAXLEN = 20;
+	private static final int LAST_PHRASE_MAXLEN = 100;
 	
     private InputMethodManager mInputMethodManager;
 
@@ -527,18 +529,7 @@ public class SoftKeyboard extends InputMethodService
     // Implementation of KeyboardViewListener
 
 	public void onKey(int primaryCode, int[] keyCodes) {
-		if (isWordSeparator(primaryCode)) { // Handle separator
-			/* now let's wait until the debugger attaches */
-			if (DEBUG)
-				android.os.Debug.waitForDebugger();
-
-			if (mComposing.length() > 0) {
-				commitTyped(getCurrentInputConnection());
-			}
-			sendKey(primaryCode);
-			updateShiftKeyState(getCurrentInputEditorInfo());
-			swapPunctuationAndSpace();
-		} else if (primaryCode == Keyboard.KEYCODE_DELETE) {
+		if (primaryCode == Keyboard.KEYCODE_DELETE) {
 			handleBackspace();
 		} else if (primaryCode == Keyboard.KEYCODE_SHIFT) {
 			handleShift();
@@ -591,6 +582,32 @@ public class SoftKeyboard extends InputMethodService
             }
         }
     }
+    
+	private void updateCandidatesAtWordSeparator() {
+		if (mCompletionOn || mComposing.length() > 0)
+			return;
+
+		if (DEBUG)
+			android.os.Debug.waitForDebugger();
+
+		InputConnection ic = getCurrentInputConnection();
+		if (ic == null)
+			return;
+
+		String t = (String) ic.getTextBeforeCursor(LAST_PHRASE_MAXLEN, 0);
+		if (t.length() < MIN_N_CHARS)
+			return;
+
+		String[] syllabs = RE_SPACE.split(t);
+		String w = t.substring(t.lastIndexOf(syllabs[syllabs.length-1]));
+		
+		if (w.length() < MIN_N_CHARS)
+			return;
+
+		String context = getContext(t, w);//.substring(0, w.length() - 1)
+		int begin = t.lastIndexOf(w);
+		callVietes(context, w, begin);
+	}
     
     public void setSuggestions(List<String> suggestions, boolean completions,
             boolean typedWordValid) {
@@ -652,7 +669,20 @@ public class SoftKeyboard extends InputMethodService
             getCurrentInputConnection().setComposingText(mComposing, 1);
             updateShiftKeyState(getCurrentInputEditorInfo());
             updateCandidates();
-        } else {
+        } else 	if (isWordSeparator(primaryCode)) { // Handle separator
+			if (mComposing.length() > 0) {
+				commitTyped(getCurrentInputConnection());
+				sendKey(primaryCode);
+				updateShiftKeyState(getCurrentInputEditorInfo());
+				swapPunctuationAndSpace();
+				updateCandidatesAtWordSeparator();
+			}
+			else {
+				sendKey(primaryCode);
+				updateShiftKeyState(getCurrentInputEditorInfo());
+				swapPunctuationAndSpace();
+			}
+		} else {
             getCurrentInputConnection().commitText(
                     String.valueOf((char) primaryCode), 1);
         }
@@ -688,7 +718,6 @@ public class SoftKeyboard extends InputMethodService
     }
     
     public void pickSuggestionManually(int index) {
-    	/* now let's wait until the debugger attaches */
         if (DEBUG) android.os.Debug.waitForDebugger();
         
         if (mCompletionOn && mCompletions != null && index >= 0
@@ -704,6 +733,24 @@ public class SoftKeyboard extends InputMethodService
             // commit one of them here (by overwriting mComposing with selected suggestion).
         	mComposing.replace(0, mComposing.length(), mCandidateView.getSuggestions(index)+" ");
             commitTyped(getCurrentInputConnection());
+        } else if (mComposing.length() == 0) {
+            // replace previously commited text
+        	InputConnection ic = getCurrentInputConnection();
+    		if (ic==null) return;
+    		
+    		ic.beginBatchEdit();
+    		String t = (String) ic.getTextBeforeCursor(LAST_WORD_MAXLEN, 0);
+    		if (t.length() < MIN_N_CHARS) return;
+    		
+    		String[] syllabs = RE_SPACE.split(t);
+    		String lastSyllab = syllabs[syllabs.length-1];
+    		String t1 = t.substring(0, t.lastIndexOf(lastSyllab));
+    		String t2 = t.substring(t.lastIndexOf(lastSyllab)+lastSyllab.length());
+    		
+    		ic.deleteSurroundingText(LAST_WORD_MAXLEN, 0);
+    		ic.commitText(t1+mCandidateView.getSuggestions(index)+t2, 1);
+    		ic.endBatchEdit();
+    		setSuggestions(null, false, false);
         }
     }
     
@@ -731,7 +778,7 @@ public class SoftKeyboard extends InputMethodService
     }
     
 	/** 
-	 * get list of suggestions via ajax(viet.es)
+	 * get list of suggestions via ajax
 	 * @todo Called by updateCandidates() or whenever a character, including space, is entered? 
 	 **/
 	public void getSuggestions() {
@@ -740,11 +787,19 @@ public class SoftKeyboard extends InputMethodService
 		InputConnection ic = getCurrentInputConnection();
 		if (ic==null) return;
 		
-		String t = (String) ic.getTextBeforeCursor(100, 0);
+		String t = (String) ic.getTextBeforeCursor(LAST_PHRASE_MAXLEN, 0);
 		String w = mComposing.toString();//(String) ic.getSelectedText(0);
 		String context = getContext(t, w); 
 	    int begin = t.lastIndexOf(w); // what if the typed text is longer than t, 
 	    // i.e already contains more than 100 chars???
+	    callVietes(context, w, begin);
+	}
+
+	/** 
+	 * get list of suggestions from viet.es
+	 *  
+	 **/	
+	public void callVietes(String context, String w, int begin) {
 		if (Character.isUpperCase(w.charAt(0)) && (context.length()==0 || context.trim().length()==0)) {
 			begin = 0; // currently begin is actually not used
 			w = w.toLowerCase();
@@ -753,7 +808,7 @@ public class SoftKeyboard extends InputMethodService
 		URL vietes = null;
 		try {
 			String c = URLEncoder.encode(context, "utf-8").toString().replace("+", "%20");
-			String w1 = URLEncoder.encode(w, "utf-8").toString();
+			String w1 = URLEncoder.encode(w, "utf-8").toString().replace("+", "%20");
 			if (DEBUG)
 				vietes = new URL(LOCAL_URL+c+'/'+w1+'/'+begin);
 			else
@@ -773,24 +828,23 @@ public class SoftKeyboard extends InputMethodService
 	}
 
 	public String getContext(String t, String w) {
-		String[] phrases = t.split( RE_PHRASE_SPL );
-		String lastPhrase = phrases[phrases.length-1];
+		String[] phrases = t.trim().split( RE_PHRASE_SPL );
+		String lastPhrase = t.substring(t.lastIndexOf(phrases[phrases.length-1]));
 		String context = lastPhrase.substring(0, lastPhrase.lastIndexOf(w)); 
 		return context;
 	}
 	
     private void swapPunctuationAndSpace() {
-    	if (DEBUG) android.os.Debug.waitForDebugger();
-    	
 		InputConnection ic = getCurrentInputConnection();
 		if (ic==null) return;
 		
         CharSequence lastTwo = ic.getTextBeforeCursor(2, 0);
         if (lastTwo != null && lastTwo.length() == 2 && lastTwo.charAt(0) == CHAR_SPACE) {
             ic.deleteSurroundingText(2, 0);
-            if (lastTwo.charAt(1) == CHAR_SPACE) { // double space => .
-            	ic.commitText(".", 1);
-            } else if (ENDING.matcher(String.valueOf(lastTwo.charAt(1))).find()) { // swap
+//            if (lastTwo.charAt(1) == CHAR_SPACE) { // double space => .
+//            	ic.commitText(".", 1);
+//            } else 
+            if (ENDING.matcher(String.valueOf(lastTwo.charAt(1))).find()) { // swap
             	ic.commitText(lastTwo.charAt(1) + STR_SPACE, 1);
             }
             updateShiftKeyState(getCurrentInputEditorInfo());
@@ -825,10 +879,11 @@ public class SoftKeyboard extends InputMethodService
     			Log.d(DEBUG_TAG, "doInBackground - The suggestions are: " + suggestions);
     			return suggestions;
     		} catch (IOException e) { // IOException
-    			return "Unable to retrieve web page. URL may be invalid";
+    			if (DEBUG) return "Unable to retrieve web page. URL may be invalid";
+    			else return STR_SPACE;
     		}
     		catch (org.json.JSONException e) { // JSONException
-			return "JSON may be malformed";
+    			return "JSON may be malformed";
     		}
     	}
     	// onPostExecute displays the results of the AsyncTask.
