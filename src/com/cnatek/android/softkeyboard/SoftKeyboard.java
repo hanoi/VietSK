@@ -75,15 +75,16 @@ public class SoftKeyboard extends InputMethodService
      * that are primarily intended to be used for on-screen text entry.
      */
     static final boolean PROCESS_HARD_KEYS = true;
-	private static final String RE_PHRASE_SPL = "[.,:;?!'\"()]|[@#$%&*+/]|[\t\f\r\n]";
-	private static final String COMMON_CONSO = "th|ch|ng|nh|tr|kh|ph|gi|qu";
+	private static final Pattern RE_PHRASE_SPL = Pattern.compile("[.,:;?!'\"()]|[@#$%&*+/]|[\t\f\r\n]");
+	private static final Pattern RE_COMMON_CONSO = Pattern.compile("th|ch|ng|nh|tr|kh|ph|gi|qu", Pattern.CASE_INSENSITIVE);
+	private static final Pattern RE_VOWEL = Pattern.compile("[aeiouy]", Pattern.CASE_INSENSITIVE);
 	private static final Pattern RE_SPACE = Pattern.compile("[ .,:;?!'\"()]");//|[\t\f\r\n]
-	private static final Pattern ENDING = Pattern.compile("[.,:;?!\r\n]");
+	private static final Pattern RE_ENDING = Pattern.compile("[.,:;?!]");
 	private static final int MIN_N_CHARS = 2;
 	private static final char CHAR_SPACE = ' ';
 	private static final String STR_SPACE = " ";
 	private static final int LAST_WORD_MAXLEN = 20;
-	private static final int LAST_PHRASE_MAXLEN = 100;
+	private static final int LAST_PHRASE_MAXLEN = 60;
 	
     private InputMethodManager mInputMethodManager;
 
@@ -574,12 +575,12 @@ public class SoftKeyboard extends InputMethodService
      * candidates.
      */
     private void updateCandidates() {
-        if (!mCompletionOn) {
-        	if (mComposing.length() < MIN_N_CHARS || mComposing.toString().matches(COMMON_CONSO)) { 
-        		setSuggestions(null, false, false);
-            } else {
+        if (!mCompletionOn && mComposing.length() > 0) {
+//        	if (mComposing.length() < MIN_N_CHARS && RE_VOWEL.matcher(mComposing).find()==false) { 
+//        		setSuggestions(null, false, false);
+//            } else {
             	getSuggestions();
-            }
+//            }
         }
     }
     
@@ -601,10 +602,10 @@ public class SoftKeyboard extends InputMethodService
 		String[] syllabs = RE_SPACE.split(t);
 		String w = t.substring(t.lastIndexOf(syllabs[syllabs.length-1]));
 		
-		if (w.length() < MIN_N_CHARS)
+		if (w.length() < MIN_N_CHARS) // && RE_VOWEL.matcher(w).find()==false)
 			return;
 
-		String context = getContext(t, w);//.substring(0, w.length() - 1)
+		String context = getContext(t, w);
 		int begin = t.lastIndexOf(w);
 		callVietes(context, w, begin);
 	}
@@ -792,15 +793,22 @@ public class SoftKeyboard extends InputMethodService
 		String context = getContext(t, w); 
 	    int begin = t.lastIndexOf(w); // what if the typed text is longer than t, 
 	    // i.e already contains more than 100 chars???
-	    callVietes(context, w, begin);
+	    if (! isBlank(context) || RE_VOWEL.matcher(mComposing).find()) // RE_COMMON_CONSO.matcher(w).matches()==false || 
+	    	callVietes(context, w, begin);
+	    else
+	    	setSuggestions(null, false, false);
 	}
 
+    public boolean isBlank(String c) { // String.isBlank unavailble in API level 8???
+    	return (c.length()==0 || c.trim().length()==0);
+    }
+    
 	/** 
 	 * get list of suggestions from viet.es
 	 *  
 	 **/	
 	public void callVietes(String context, String w, int begin) {
-		if (Character.isUpperCase(w.charAt(0)) && (context.length()==0 || context.trim().length()==0)) {
+		if (Character.isUpperCase(w.charAt(0)) && isBlank(context)) {
 			begin = 0; // currently begin is actually not used
 			w = w.toLowerCase();
 		}
@@ -828,7 +836,7 @@ public class SoftKeyboard extends InputMethodService
 	}
 
 	public String getContext(String t, String w) {
-		String[] phrases = t.trim().split( RE_PHRASE_SPL );
+		String[] phrases = RE_PHRASE_SPL.split(t.trim());
 		String lastPhrase = t.substring(t.lastIndexOf(phrases[phrases.length-1]));
 		String context = lastPhrase.substring(0, lastPhrase.lastIndexOf(w)); 
 		return context;
@@ -844,7 +852,7 @@ public class SoftKeyboard extends InputMethodService
 //            if (lastTwo.charAt(1) == CHAR_SPACE) { // double space => .
 //            	ic.commitText(".", 1);
 //            } else 
-            if (ENDING.matcher(String.valueOf(lastTwo.charAt(1))).find()) { // swap
+            if (RE_ENDING.matcher(String.valueOf(lastTwo.charAt(1))).find()) { // swap
             	ic.commitText(lastTwo.charAt(1) + STR_SPACE, 1);
             }
             updateShiftKeyState(getCurrentInputEditorInfo());
@@ -878,18 +886,23 @@ public class SoftKeyboard extends InputMethodService
     			String suggestions = words.join(",");
     			Log.d(DEBUG_TAG, "doInBackground - The suggestions are: " + suggestions);
     			return suggestions;
-    		} catch (IOException e) { // IOException
+    		} 
+    		catch (IOException eDownloadUrl) { // IOException
     			if (DEBUG) return "Unable to retrieve web page. URL may be invalid";
-    			else return STR_SPACE;
+    			else return null;
     		}
-    		catch (org.json.JSONException e) { // JSONException
-    			return "JSON may be malformed";
+    		catch (org.json.JSONException eJSONArray) { // JSONException
+    			if (DEBUG) return "JSON may be malformed";
+    			else return null;
     		}
     	}
     	// onPostExecute displays the results of the AsyncTask.
     	@Override
     	protected void onPostExecute(String suggestions) {
-    		setSuggestions(Arrays.asList(suggestions.split("\",\"|[,\"]")), true, true);
+    		if (suggestions!=null)
+    			setSuggestions(Arrays.asList(suggestions.split("\",\"|[,\"]")), true, true);
+    		else
+    			setSuggestions(null, false, false);
     	}
 
     	// Given a URL, establishes an HttpUrlConnection and retrieves

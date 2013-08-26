@@ -21,5 +21,7 @@
 <resources>
     <dimen name="key_height">50dip</dimen>
     <dimen name="candidate_font_height">20sp</dimen>
-    <dimen name="candidate_vertical_padding">6sp</dimen>
+    <dimen name="candidate_vertical_padding">16sp</dimen>
+    <dimen name="candidate_strip_height">48sp</dimen>
+    <dimen name="candidate_strip_fading_edge_length">63sp</dimen>
 </resources>
