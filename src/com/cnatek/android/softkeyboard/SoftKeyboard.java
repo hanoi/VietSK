@@ -75,10 +75,10 @@ public class SoftKeyboard extends InputMethodService
      * that are primarily intended to be used for on-screen text entry.
      */
     static final boolean PROCESS_HARD_KEYS = true;
-	private static final Pattern RE_PHRASE_SPL = Pattern.compile("[.,:;?!'\"()]|[@#$%&*+/]|[\t\f\r\n]");
+	private static final Pattern RE_PHRASE_SPL = Pattern.compile("[.,:;?!'\"()]|[@#$%&*+-=/]|[\n]");
 	private static final Pattern RE_COMMON_CONSO = Pattern.compile("th|ch|ng|nh|tr|kh|ph|gi|qu", Pattern.CASE_INSENSITIVE);
 	private static final Pattern RE_VOWEL = Pattern.compile("[aeiouy]", Pattern.CASE_INSENSITIVE);
-	private static final Pattern RE_SPACE = Pattern.compile("[ .,:;?!'\"()]");//|[\t\f\r\n]
+	private static final Pattern RE_SPACE = Pattern.compile("[ .,:;?!'\"()]|[@#$%&*+-=/]|[\n]");
 	private static final Pattern RE_SWAPPABLE_PUNCTUATION = Pattern.compile("[.,:;?!]");
 	private static final int MIN_N_CHARS = 2;
 	private static final char CHAR_SPACE = ' ';
