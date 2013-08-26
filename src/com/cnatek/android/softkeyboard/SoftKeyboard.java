@@ -61,7 +61,7 @@ import org.json.JSONObject;
  */
 public class SoftKeyboard extends InputMethodService 
         implements KeyboardView.OnKeyboardActionListener {
-    static final boolean DEBUG = true;
+    static final boolean DEBUG = false;
 	static final String DEBUG_TAG = "VIET.ES";
     static final String VIET_URL = "http://viet.es/s/s/";
     static final String LOCAL_URL = "http://10.0.2.2:8000/s/s/";
@@ -79,7 +79,7 @@ public class SoftKeyboard extends InputMethodService
 	private static final Pattern RE_COMMON_CONSO = Pattern.compile("th|ch|ng|nh|tr|kh|ph|gi|qu", Pattern.CASE_INSENSITIVE);
 	private static final Pattern RE_VOWEL = Pattern.compile("[aeiouy]", Pattern.CASE_INSENSITIVE);
 	private static final Pattern RE_SPACE = Pattern.compile("[ .,:;?!'\"()]");//|[\t\f\r\n]
-	private static final Pattern RE_ENDING = Pattern.compile("[.,:;?!]");
+	private static final Pattern RE_SWAPPABLE_PUNCTUATION = Pattern.compile("[.,:;?!]");
 	private static final int MIN_N_CHARS = 2;
 	private static final char CHAR_SPACE = ' ';
 	private static final String STR_SPACE = " ";
@@ -847,14 +847,15 @@ public class SoftKeyboard extends InputMethodService
 		if (ic==null) return;
 		
         CharSequence lastTwo = ic.getTextBeforeCursor(2, 0);
-        if (lastTwo != null && lastTwo.length() == 2 && lastTwo.charAt(0) == CHAR_SPACE) {
+        if (lastTwo != null && lastTwo.length() == 2 
+        		&& lastTwo.charAt(0) == CHAR_SPACE 
+        		&& RE_SWAPPABLE_PUNCTUATION.matcher(String.valueOf(lastTwo.charAt(1))).matches()) { // swap
             ic.deleteSurroundingText(2, 0);
-//            if (lastTwo.charAt(1) == CHAR_SPACE) { // double space => .
+        	ic.commitText(lastTwo.charAt(1) + STR_SPACE, 1);
+//            else if (lastTwo.charAt(1) == CHAR_SPACE) { // double space => .
+//        	    ic.deleteSurroundingText(2, 0);
 //            	ic.commitText(".", 1);
-//            } else 
-            if (RE_ENDING.matcher(String.valueOf(lastTwo.charAt(1))).find()) { // swap
-            	ic.commitText(lastTwo.charAt(1) + STR_SPACE, 1);
-            }
+//            }
             updateShiftKeyState(getCurrentInputEditorInfo());
         }
     }
